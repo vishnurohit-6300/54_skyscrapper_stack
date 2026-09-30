@@ -13,26 +13,30 @@ class GameEngine:
         self.font_title = pygame.font.SysFont(None, 38)
         self.font_hud = pygame.font.SysFont(None, 28)
         self.font_big = pygame.font.SysFont(None, 46)
+        self.font_perfect = pygame.font.SysFont(None, 42)
 
         self.reset()
 
     def get_color(self, index):
         palette = [
-            (230, 75, 75),   # Crimson
-            (240, 140, 45),  # Orange
-            (245, 210, 50),  # Gold
-            (60, 195, 110),  # Green
-            (50, 150, 240),  # Blue
-            (165, 80, 225),  # Purple
+            (230, 75, 75),
+            (240, 140, 45),
+            (245, 210, 50),
+            (60, 195, 110),
+            (50, 150, 240),
+            (165, 80, 225),
         ]
         return palette[index % len(palette)]
 
     def reset(self):
         self.score = 0
         self.game_over = False
+        self.perfect_streak = 0
+        self.perfect_popup_timer = 0
 
         base_x = (self.width - self.base_width) // 2
         base_y = self.height - 60
+
         base_block = Block(
             base_x,
             base_y,
@@ -41,12 +45,13 @@ class GameEngine:
             self.get_color(0),
             speed=0
         )
-        self.stack = [base_block]
 
+        self.stack = [base_block]
         self.spawn_active_block()
 
     def spawn_active_block(self):
         top_block = self.stack[-1]
+
         next_y = top_block.y - self.block_height - 4
         speed = min(10.0, 4.5 + (len(self.stack) * 0.35))
         color = self.get_color(len(self.stack))
@@ -74,28 +79,73 @@ class GameEngine:
         act = self.active_block
 
         left = max(act.x, top_block.x)
-        right = min(act.x + act.width, top_block.x + top_block.width)
+        right = min(
+            act.x + act.width,
+            top_block.x + top_block.width
+        )
+
         overlap = right - left
 
-        # Positive overlap means the active block successfully
-        # intersects the block below.
+        # Positive overlap means successful placement.
         is_successful_drop = overlap > 0
 
         if is_successful_drop:
-            trimmed_width = max(10.0, overlap)
 
-            new_block = Block(
-                left,
-                act.y,
-                trimmed_width,
-                self.block_height,
-                act.color,
-                speed=0
-            )
+            # Check for a near-perfect alignment.
+            is_perfect = abs(act.x - top_block.x) <= 3
 
-            self.stack.append(new_block)
-            self.score += 1
+            if is_perfect:
+                # Snap the block to the exact position of the
+                # block underneath and keep its full width.
+                new_x = top_block.x
+                new_width = top_block.width
 
+                new_block = Block(
+                    new_x,
+                    act.y,
+                    new_width,
+                    self.block_height,
+                    act.color,
+                    speed=0
+                )
+
+                self.stack.append(new_block)
+
+                # Perfect placement gives bonus points.
+                self.score += 3
+
+                self.perfect_streak += 1
+                self.perfect_popup_timer = 45
+
+                # After 3 consecutive perfect placements,
+                # slightly expand the next block width.
+                if self.perfect_streak >= 3:
+                    expanded_width = min(
+                        self.base_width,
+                        new_block.width + 10
+                    )
+                    new_block.width = expanded_width
+
+            else:
+                # Normal placement trims the block to the
+                # overlapping region.
+                self.perfect_streak = 0
+
+                trimmed_width = max(10.0, overlap)
+
+                new_block = Block(
+                    left,
+                    act.y,
+                    trimmed_width,
+                    self.block_height,
+                    act.color,
+                    speed=0
+                )
+
+                self.stack.append(new_block)
+                self.score += 1
+
+            # Camera scrolling.
             if new_block.y < 180:
                 shift_amount = self.block_height + 4
 
@@ -106,12 +156,19 @@ class GameEngine:
 
         else:
             self.game_over = True
+            self.perfect_streak = 0
 
     def handle_event(self, event):
         if self.game_over:
-            if (event.type == pygame.KEYDOWN and event.key == pygame.K_r) or \
-               (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1):
+            if (
+                event.type == pygame.KEYDOWN
+                and event.key == pygame.K_r
+            ) or (
+                event.type == pygame.MOUSEBUTTONDOWN
+                and event.button == 1
+            ):
                 self.reset()
+
             return
 
         if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
@@ -123,6 +180,9 @@ class GameEngine:
     def update(self):
         if not self.game_over:
             self.active_block.update(self.width)
+
+        if self.perfect_popup_timer > 0:
+            self.perfect_popup_timer -= 1
 
     def render(self, screen):
         screen.fill((24, 27, 36))
@@ -160,6 +220,26 @@ class GameEngine:
 
         if not self.game_over:
             self.active_block.render(screen)
+
+        # PERFECT popup
+        if self.perfect_popup_timer > 0:
+            perfect_surf = self.font_perfect.render(
+                "PERFECT!",
+                True,
+                (255, 215, 0)
+            )
+
+            popup_y = 100 - (
+                45 - self.perfect_popup_timer
+            )
+
+            screen.blit(
+                perfect_surf,
+                (
+                    self.width // 2 - perfect_surf.get_width() // 2,
+                    popup_y
+                )
+            )
 
         if self.game_over:
             overlay = pygame.Surface(

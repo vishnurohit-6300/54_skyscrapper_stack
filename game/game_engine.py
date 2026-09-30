@@ -34,6 +34,9 @@ class GameEngine:
         self.perfect_streak = 0
         self.perfect_popup_timer = 0
 
+        # Store all falling debris here.
+        self.debris = []
+
         base_x = (self.width - self.base_width) // 2
         base_y = self.height - 60
 
@@ -47,6 +50,7 @@ class GameEngine:
         )
 
         self.stack = [base_block]
+
         self.spawn_active_block()
 
     def spawn_active_block(self):
@@ -71,6 +75,25 @@ class GameEngine:
             speed=speed
         )
 
+    def create_debris(self, x, y, width, color):
+        if width <= 0:
+            return
+
+        debris = Block(
+            x,
+            y,
+            width,
+            self.block_height,
+            color,
+            speed=0,
+            is_debris=True,
+            velocity_y=-2.0,
+            rotation=0,
+            rotation_speed=random.choice([-6, -4, 4, 6])
+        )
+
+        self.debris.append(debris)
+
     def drop_block(self):
         if self.game_over:
             return
@@ -91,12 +114,10 @@ class GameEngine:
 
         if is_successful_drop:
 
-            # Check for a near-perfect alignment.
+            # PERFECT placement
             is_perfect = abs(act.x - top_block.x) <= 3
 
             if is_perfect:
-                # Snap the block to the exact position of the
-                # block underneath and keep its full width.
                 new_x = top_block.x
                 new_width = top_block.width
 
@@ -111,14 +132,10 @@ class GameEngine:
 
                 self.stack.append(new_block)
 
-                # Perfect placement gives bonus points.
                 self.score += 3
-
                 self.perfect_streak += 1
                 self.perfect_popup_timer = 45
 
-                # After 3 consecutive perfect placements,
-                # slightly expand the next block width.
                 if self.perfect_streak >= 3:
                     expanded_width = min(
                         self.base_width,
@@ -127,9 +144,40 @@ class GameEngine:
                     new_block.width = expanded_width
 
             else:
-                # Normal placement trims the block to the
-                # overlapping region.
+                # Normal placement
                 self.perfect_streak = 0
+
+                # ------------------------------------------------
+                # TASK 3: CREATE FALLING CUT-OFF DEBRIS
+                # ------------------------------------------------
+
+                # If the active block extends to the LEFT of the
+                # block underneath, the left overhang falls.
+                if act.x < top_block.x:
+                    debris_width = top_block.x - act.x
+
+                    self.create_debris(
+                        act.x,
+                        act.y,
+                        debris_width,
+                        act.color
+                    )
+
+                # If the active block extends to the RIGHT of the
+                # block underneath, the right overhang falls.
+                elif act.x + act.width > top_block.x + top_block.width:
+                    debris_x = top_block.x + top_block.width
+                    debris_width = (
+                        act.x + act.width
+                        - (top_block.x + top_block.width)
+                    )
+
+                    self.create_debris(
+                        debris_x,
+                        act.y,
+                        debris_width,
+                        act.color
+                    )
 
                 trimmed_width = max(10.0, overlap)
 
@@ -145,7 +193,7 @@ class GameEngine:
                 self.stack.append(new_block)
                 self.score += 1
 
-            # Camera scrolling.
+            # Camera scrolling
             if new_block.y < 180:
                 shift_amount = self.block_height + 4
 
@@ -181,6 +229,18 @@ class GameEngine:
         if not self.game_over:
             self.active_block.update(self.width)
 
+        # Update falling debris.
+        for debris in self.debris:
+            debris.update(self.width)
+
+        # Remove debris after it leaves the screen.
+        self.debris = [
+            debris
+            for debris in self.debris
+            if debris.y < self.height + 100
+        ]
+
+        # PERFECT popup timer
         if self.perfect_popup_timer > 0:
             self.perfect_popup_timer -= 1
 
@@ -215,9 +275,15 @@ class GameEngine:
             )
         )
 
+        # Tower blocks
         for b in self.stack:
             b.render(screen)
 
+        # Falling debris
+        for debris in self.debris:
+            debris.render(screen)
+
+        # Active block
         if not self.game_over:
             self.active_block.render(screen)
 
@@ -236,7 +302,8 @@ class GameEngine:
             screen.blit(
                 perfect_surf,
                 (
-                    self.width // 2 - perfect_surf.get_width() // 2,
+                    self.width // 2
+                    - perfect_surf.get_width() // 2,
                     popup_y
                 )
             )
@@ -259,7 +326,8 @@ class GameEngine:
             screen.blit(
                 over_surf,
                 (
-                    self.width // 2 - over_surf.get_width() // 2,
+                    self.width // 2
+                    - over_surf.get_width() // 2,
                     self.height // 2 - 40
                 )
             )
@@ -273,7 +341,8 @@ class GameEngine:
             screen.blit(
                 final_surf,
                 (
-                    self.width // 2 - final_surf.get_width() // 2,
+                    self.width // 2
+                    - final_surf.get_width() // 2,
                     self.height // 2 + 10
                 )
             )
@@ -287,7 +356,8 @@ class GameEngine:
             screen.blit(
                 restart_surf,
                 (
-                    self.width // 2 - restart_surf.get_width() // 2,
+                    self.width // 2
+                    - restart_surf.get_width() // 2,
                     self.height // 2 + 50
                 )
             )

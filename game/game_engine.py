@@ -34,7 +34,6 @@ class GameEngine:
         self.perfect_streak = 0
         self.perfect_popup_timer = 0
 
-        # Store all falling debris here.
         self.debris = []
 
         base_x = (self.width - self.base_width) // 2
@@ -109,12 +108,11 @@ class GameEngine:
 
         overlap = right - left
 
-        # Positive overlap means successful placement.
         is_successful_drop = overlap > 0
 
         if is_successful_drop:
 
-            # PERFECT placement
+            # PERFECT PLACEMENT
             is_perfect = abs(act.x - top_block.x) <= 3
 
             if is_perfect:
@@ -144,15 +142,9 @@ class GameEngine:
                     new_block.width = expanded_width
 
             else:
-                # Normal placement
                 self.perfect_streak = 0
 
-                # ------------------------------------------------
-                # TASK 3: CREATE FALLING CUT-OFF DEBRIS
-                # ------------------------------------------------
-
-                # If the active block extends to the LEFT of the
-                # block underneath, the left overhang falls.
+                # LEFT OVERHANG
                 if act.x < top_block.x:
                     debris_width = top_block.x - act.x
 
@@ -163,10 +155,10 @@ class GameEngine:
                         act.color
                     )
 
-                # If the active block extends to the RIGHT of the
-                # block underneath, the right overhang falls.
+                # RIGHT OVERHANG
                 elif act.x + act.width > top_block.x + top_block.width:
                     debris_x = top_block.x + top_block.width
+
                     debris_width = (
                         act.x + act.width
                         - (top_block.x + top_block.width)
@@ -193,7 +185,6 @@ class GameEngine:
                 self.stack.append(new_block)
                 self.score += 1
 
-            # Camera scrolling
             if new_block.y < 180:
                 shift_amount = self.block_height + 4
 
@@ -229,23 +220,78 @@ class GameEngine:
         if not self.game_over:
             self.active_block.update(self.width)
 
-        # Update falling debris.
         for debris in self.debris:
             debris.update(self.width)
 
-        # Remove debris after it leaves the screen.
         self.debris = [
             debris
             for debris in self.debris
             if debris.y < self.height + 100
         ]
 
-        # PERFECT popup timer
         if self.perfect_popup_timer > 0:
             self.perfect_popup_timer -= 1
 
+    def get_background_color(self):
+        """
+        Calculate the sky color from the current tower height.
+
+        The background gradually moves through:
+        twilight blue -> dusk purple -> night -> stratosphere black.
+        """
+
+        height = self.score
+
+        stages = [
+            (0, (24, 27, 36)),
+            (8, (45, 55, 100)),
+            (16, (75, 55, 120)),
+            (25, (35, 25, 75)),
+            (35, (8, 10, 25)),
+            (50, (2, 4, 12)),
+        ]
+
+        for i in range(len(stages) - 1):
+            current_height, current_color = stages[i]
+            next_height, next_color = stages[i + 1]
+
+            if height <= next_height:
+                progress = (
+                    height - current_height
+                ) / (
+                    next_height - current_height
+                )
+
+                progress = max(0.0, min(1.0, progress))
+
+                r = int(
+                    current_color[0]
+                    + (next_color[0] - current_color[0])
+                    * progress
+                )
+
+                g = int(
+                    current_color[1]
+                    + (next_color[1] - current_color[1])
+                    * progress
+                )
+
+                b = int(
+                    current_color[2]
+                    + (next_color[2] - current_color[2])
+                    * progress
+                )
+
+                return (r, g, b)
+
+        return stages[-1][1]
+
     def render(self, screen):
-        screen.fill((24, 27, 36))
+        # TASK 4:
+        # Gradually change the sky as the tower becomes taller.
+        background_color = self.get_background_color()
+
+        screen.fill(background_color)
 
         title_surf = self.font_title.render(
             "Skyscraper Stack",
@@ -256,7 +302,8 @@ class GameEngine:
         screen.blit(
             title_surf,
             (
-                self.width // 2 - title_surf.get_width() // 2,
+                self.width // 2
+                - title_surf.get_width() // 2,
                 16
             )
         )
@@ -270,20 +317,18 @@ class GameEngine:
         screen.blit(
             score_surf,
             (
-                self.width // 2 - score_surf.get_width() // 2,
+                self.width // 2
+                - score_surf.get_width() // 2,
                 54
             )
         )
 
-        # Tower blocks
         for b in self.stack:
             b.render(screen)
 
-        # Falling debris
         for debris in self.debris:
             debris.render(screen)
 
-        # Active block
         if not self.game_over:
             self.active_block.render(screen)
 

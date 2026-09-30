@@ -33,7 +33,14 @@ class GameEngine:
 
         base_x = (self.width - self.base_width) // 2
         base_y = self.height - 60
-        base_block = Block(base_x, base_y, self.base_width, self.block_height, self.get_color(0), speed=0)
+        base_block = Block(
+            base_x,
+            base_y,
+            self.base_width,
+            self.block_height,
+            self.get_color(0),
+            speed=0
+        )
         self.stack = [base_block]
 
         self.spawn_active_block()
@@ -44,8 +51,20 @@ class GameEngine:
         speed = min(10.0, 4.5 + (len(self.stack) * 0.35))
         color = self.get_color(len(self.stack))
 
-        start_x = 25 if random.choice([True, False]) else self.width - 25 - top_block.width
-        self.active_block = Block(start_x, next_y, top_block.width, self.block_height, color, speed=speed)
+        start_x = (
+            25
+            if random.choice([True, False])
+            else self.width - 25 - top_block.width
+        )
+
+        self.active_block = Block(
+            start_x,
+            next_y,
+            top_block.width,
+            self.block_height,
+            color,
+            speed=speed
+        )
 
     def drop_block(self):
         if self.game_over:
@@ -57,23 +76,34 @@ class GameEngine:
         left = max(act.x, top_block.x)
         right = min(act.x + act.width, top_block.x + top_block.width)
         overlap = right - left
-        
-        # BUG SYMPTOM: 
-        # Overlap condition is inverted so hitting empty air succeeds while landing on the tower fails.
-        is_successful_drop = overlap <= 0
-        
+
+        # Positive overlap means the active block successfully
+        # intersects the block below.
+        is_successful_drop = overlap > 0
+
         if is_successful_drop:
             trimmed_width = max(10.0, overlap)
-            new_block = Block(left, act.y, trimmed_width, self.block_height, act.color, speed=0)
+
+            new_block = Block(
+                left,
+                act.y,
+                trimmed_width,
+                self.block_height,
+                act.color,
+                speed=0
+            )
+
             self.stack.append(new_block)
             self.score += 1
 
             if new_block.y < 180:
                 shift_amount = self.block_height + 4
+
                 for b in self.stack:
                     b.y += shift_amount
 
             self.spawn_active_block()
+
         else:
             self.game_over = True
 
@@ -86,6 +116,7 @@ class GameEngine:
 
         if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
             self.drop_block()
+
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             self.drop_block()
 
@@ -96,11 +127,33 @@ class GameEngine:
     def render(self, screen):
         screen.fill((24, 27, 36))
 
-        title_surf = self.font_title.render("Skyscraper Stack", True, (245, 245, 245))
-        screen.blit(title_surf, (self.width // 2 - title_surf.get_width() // 2, 16))
+        title_surf = self.font_title.render(
+            "Skyscraper Stack",
+            True,
+            (245, 245, 245)
+        )
 
-        score_surf = self.font_hud.render(f"Height: {self.score}", True, (255, 220, 80))
-        screen.blit(score_surf, (self.width // 2 - score_surf.get_width() // 2, 54))
+        screen.blit(
+            title_surf,
+            (
+                self.width // 2 - title_surf.get_width() // 2,
+                16
+            )
+        )
+
+        score_surf = self.font_hud.render(
+            f"Height: {self.score}",
+            True,
+            (255, 220, 80)
+        )
+
+        screen.blit(
+            score_surf,
+            (
+                self.width // 2 - score_surf.get_width() // 2,
+                54
+            )
+        )
 
         for b in self.stack:
             b.render(screen)
@@ -109,15 +162,52 @@ class GameEngine:
             self.active_block.render(screen)
 
         if self.game_over:
-            overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            overlay = pygame.Surface(
+                (self.width, self.height),
+                pygame.SRCALPHA
+            )
+
             overlay.fill((0, 0, 0, 195))
             screen.blit(overlay, (0, 0))
 
-            over_surf = self.font_big.render("TOWER COLLAPSED!", True, (240, 75, 75))
-            screen.blit(over_surf, (self.width // 2 - over_surf.get_width() // 2, self.height // 2 - 40))
+            over_surf = self.font_big.render(
+                "TOWER COLLAPSED!",
+                True,
+                (240, 75, 75)
+            )
 
-            final_surf = self.font_hud.render(f"Final Height: {self.score}", True, (255, 255, 255))
-            screen.blit(final_surf, (self.width // 2 - final_surf.get_width() // 2, self.height // 2 + 10))
+            screen.blit(
+                over_surf,
+                (
+                    self.width // 2 - over_surf.get_width() // 2,
+                    self.height // 2 - 40
+                )
+            )
 
-            restart_surf = self.font_hud.render("Press [Space] or [R] to Play Again", True, (200, 200, 200))
-            screen.blit(restart_surf, (self.width // 2 - restart_surf.get_width() // 2, self.height // 2 + 50))
+            final_surf = self.font_hud.render(
+                f"Final Height: {self.score}",
+                True,
+                (255, 255, 255)
+            )
+
+            screen.blit(
+                final_surf,
+                (
+                    self.width // 2 - final_surf.get_width() // 2,
+                    self.height // 2 + 10
+                )
+            )
+
+            restart_surf = self.font_hud.render(
+                "Press [Space] or [R] to Play Again",
+                True,
+                (200, 200, 200)
+            )
+
+            screen.blit(
+                restart_surf,
+                (
+                    self.width // 2 - restart_surf.get_width() // 2,
+                    self.height // 2 + 50
+                )
+            )
